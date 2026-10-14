@@ -1,0 +1,11 @@
+# Python compilation and environment caching
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Next.js web application compilation distributions
+.next/
+node_modules/
+out/
+.DS_Store
