@@ -11,7 +11,7 @@ This document outlines the complete, production-grade directory and file bluepri
 2. **The Database Decoupling Principle:**
    `/adapters/repository/interfaces.py` specifies Abstract Base Classes (interfaces) for data persistence. The use cases interact exclusively with these abstractions. If you migrate from **SQLite** to **PostgreSQL**, the underlying calculation engines remain entirely untouched.
 3. **Frontend Separation of Concerns:**
-   Application state is handled globally within the parent controller (`page.tsx`) and the abstraction layer (`api.service.ts`). Files inside the `/components` folder function as pure presentational nodes that take data properties and emit events, preventing state fragmentation.
+   Application state is handled globally within the parent controller (`page.tsx`) and the abstraction layer (`apiService.ts`). Files inside the `/components` folder function as pure presentational nodes that take data properties and emit events, preventing state fragmentation.
 
 ---
 
@@ -82,11 +82,11 @@ This document outlines the complete, production-grade directory and file bluepri
             ├── page.tsx                # Dashboard Base Controller; orchestrates dashboard UI states and file uploads
             │
             ├── /models                 # TypeScript structural interfaces matching the Backend JSON response payloads
-            │   ├── master.interface.ts # Maps valid employee total hour entries
-            │   └── anomaly.interface.ts# Maps skipped entries and error details for administrative remediation
+            │   ├── validatedShiftInterface.ts    # Maps valid employee total hour entries
+            │   └── anomalyExceptionInterface.ts  # Maps skipped entries and error details for administrative remediation
             │
             ├── /services               # HTTP Client Layer
-            │   └── api.service.ts      # Fetch client abstraction managing API payloads and exception trapping
+            │   └── apiService.ts       # Fetch client abstraction managing API payloads and exception trapping
             │
             └── /components             # Highly Modularized Pure Presentational UI Components
                 ├── FileUploader.tsx    # Drag-and-drop boundary providing file schema hints and execution controls
