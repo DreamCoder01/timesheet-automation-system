@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_index, create_engine
+from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Define path targeting a localized file-backed persistence engine
