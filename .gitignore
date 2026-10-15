@@ -1,11 +1,36 @@
-# Python compilation and environment caching
+# Python compilation and execution environment caching
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
 venv/
+ENV/
 .env
+.env.local
 
-# Next.js web application compilation distributions
+# Next.js build outputs and compilation distributions
 .next/
 node_modules/
 out/
+dist/
+.npm
+build/
+
+# Local persistence database layers
+*.db
+*.sqlite3
+
+# Framework auto-generated environment type declaration sheets
+next-env.d.ts
+.next-types/
+
+# Automated system file locker configurations
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# System operational desktop junk files
 .DS_Store
+Thumbs.db
