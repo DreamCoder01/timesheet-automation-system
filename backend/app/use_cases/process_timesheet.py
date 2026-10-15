@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 from app.domain.models import (
     MasterModel, AnomalyExceptionModel, ShiftStatus, 
     AnomalyCategory, ErrorSeverity, InferredContext
 )
 from app.use_cases.heuristic_parser import HeuristicTimestampParser
 from app.use_cases.time_accumulator import TimeAccumulator
-from app.use_cases.deduplicator.py import IdempotencyDeduplicator  # Fix naming import paths as needed
+from app.use_cases.deduplicator import IdempotencyDeduplicator
 from app.domain.models import RawInputPayload
 
 class ProcessTimesheetPipeline:
@@ -30,7 +30,7 @@ class ProcessTimesheetPipeline:
             if not payload.employee_id or not payload.clock_in:
                 quarantined_anomalies.append(AnomalyExceptionModel(
                     exception_id=str(uuid.uuid4()),
-                    quarantine_timestamp=datetime.utcnow(),
+                    quarantine_timestamp=datetime.now(datetime.timezone.utc),
                     error_severity=ErrorSeverity.CRITICAL,
                     error_category=AnomalyCategory.STRUCTURAL_MISMATCH,
                     diagnostic_message=f"Missing vital structural identifier keys at line {line_num}.",
@@ -44,7 +44,7 @@ class ProcessTimesheetPipeline:
             if self.deduplicator.is_duplicate(payload):
                 quarantined_anomalies.append(AnomalyExceptionModel(
                     exception_id=str(uuid.uuid4()),
-                    quarantine_timestamp=datetime.utcnow(),
+                    quarantine_timestamp=datetime.now(datetime.timezone.utc),
                     error_severity=ErrorSeverity.WARNING,
                     error_category=AnomalyCategory.DUPLICATE_LOG,
                     diagnostic_message=f"Identical duplicate data log signature caught at row line {line_num}.",
@@ -88,7 +88,7 @@ class ProcessTimesheetPipeline:
                 # Capture anomalies cleanly instead of allowing application crash states
                 quarantined_anomalies.append(AnomalyExceptionModel(
                     exception_id=str(uuid.uuid4()),
-                    quarantine_timestamp=datetime.utcnow(),
+                    quarantine_timestamp=datetime.now(datetime.timezone.utc),
                     error_severity=ErrorSeverity.WARNING,
                     error_category=AnomalyCategory.LOGICAL_PARADOX,
                     diagnostic_message=str(e),
