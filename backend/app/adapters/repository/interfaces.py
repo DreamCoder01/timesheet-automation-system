@@ -1,22 +1,22 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from app.domain.models import MasterModel, AnomalyExceptionModel
+from app.domain.models import AnomalyExceptionModel, ValidatedShiftModel
 
 class ITimesheetRepository(ABC):
     """Abstract storage interface enforcing architectural isolation for valid shifts."""
     
     @abstractmethod
-    def save_shift(self, shift: MasterModel) -> None:
+    def save_shift(self, shift: ValidatedShiftModel) -> None:
         """Persists a valid processed employee master shift model."""
         pass
 
     @abstractmethod
-    def get_shifts_by_employee(self, employee_id: str) -> List[MasterModel]:
+    def get_shifts_by_employee(self, employee_id: str) -> List[ValidatedShiftModel]:
         """Retrieves all valid stored shifts for an individual employee context."""
         pass
 
     @abstractmethod
-    def get_all_shifts(self) -> List[MasterModel]:
+    def get_all_shifts(self) -> List[ValidatedShiftModel]:
         """Retrieves every single valid processed shift within the database."""
         pass
 

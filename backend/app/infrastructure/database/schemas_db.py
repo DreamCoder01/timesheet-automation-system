@@ -2,9 +2,9 @@ from sqlalchemy import Column, String, Integer, DateTime, Boolean, ForeignKey, T
 from sqlalchemy.orm import relationship
 from app.infrastructure.database.database import Base
 
-class DBShiftEntry(Base):
-    """SQL database structure representing structural outputs of processed MasterModels."""
-    __tablename__ = "master_shifts"
+class Timesheet(Base):
+    """SQL database structure representing structural outputs of processed ValidatedShiftModels."""
+    __tablename__ = "timesheets"
 
     entry_id = Column(String, primary_key=True, index=True)
     employee_id = Column(String, index=True, nullable=False)
@@ -20,9 +20,9 @@ class DBShiftEntry(Base):
     status = Column(String, nullable=False)
 
 
-class DBAnomalyException(Base):
+class Anomaly(Base):
     """SQL database containment vault tracking quarantined legacy file processing exceptions."""
-    __tablename__ = "quarantined_anomalies"
+    __tablename__ = "anomalies"
 
     exception_id = Column(String, primary_key=True, index=True)
     quarantine_timestamp = Column(DateTime, nullable=False)

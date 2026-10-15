@@ -28,7 +28,7 @@ class AuditLogEntry:
     actor: str
 
 @dataclass
-class MasterModel:
+class ValidatedShiftModel:
     entry_id: str
     employee_id: str
     employee_full_name: str
