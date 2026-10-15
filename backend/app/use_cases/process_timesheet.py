@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Tuple, Dict, Any
 from app.domain.models import (
     MasterModel, AnomalyExceptionModel, ShiftStatus, 
@@ -22,7 +22,6 @@ class ProcessTimesheetPipeline:
         valid_shifts: List[MasterModel] = []
         quarantined_anomalies: List[AnomalyExceptionModel] = []
 
-        # Track global fallback metrics context (Using a fixed placeholder week date for demo)
         fallback_week_date = "2026-09-07"
 
         for line_num, payload in indexed_payloads:
@@ -30,7 +29,7 @@ class ProcessTimesheetPipeline:
             if not payload.employee_id or not payload.clock_in:
                 quarantined_anomalies.append(AnomalyExceptionModel(
                     exception_id=str(uuid.uuid4()),
-                    quarantine_timestamp=datetime.now(datetime.timezone.utc),
+                    quarantine_timestamp=datetime.now(timezone.utc),
                     error_severity=ErrorSeverity.CRITICAL,
                     error_category=AnomalyCategory.STRUCTURAL_MISMATCH,
                     diagnostic_message=f"Missing vital structural identifier keys at line {line_num}.",
@@ -44,7 +43,7 @@ class ProcessTimesheetPipeline:
             if self.deduplicator.is_duplicate(payload):
                 quarantined_anomalies.append(AnomalyExceptionModel(
                     exception_id=str(uuid.uuid4()),
-                    quarantine_timestamp=datetime.now(datetime.timezone.utc),
+                    quarantine_timestamp=datetime.now(timezone.utc),
                     error_severity=ErrorSeverity.WARNING,
                     error_category=AnomalyCategory.DUPLICATE_LOG,
                     diagnostic_message=f"Identical duplicate data log signature caught at row line {line_num}.",
@@ -68,7 +67,6 @@ class ProcessTimesheetPipeline:
 
                 raw_m, payable_m, overnight_flag = self.accumulator.calculate_durations(parsed_in, parsed_out)
 
-                # Instantiate valid Master Model structure
                 valid_shifts.append(MasterModel(
                     entry_id=str(uuid.uuid4()),
                     employee_id=payload.employee_id,
@@ -85,10 +83,9 @@ class ProcessTimesheetPipeline:
                 ))
 
             except Exception as e:
-                # Capture anomalies cleanly instead of allowing application crash states
                 quarantined_anomalies.append(AnomalyExceptionModel(
                     exception_id=str(uuid.uuid4()),
-                    quarantine_timestamp=datetime.now(datetime.timezone.utc),
+                    quarantine_timestamp=datetime.now(timezone.utc),
                     error_severity=ErrorSeverity.WARNING,
                     error_category=AnomalyCategory.LOGICAL_PARADOX,
                     diagnostic_message=str(e),

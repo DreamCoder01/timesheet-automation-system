@@ -1,4 +1,4 @@
-employee_id, Employee_Name ,clock_in,clock_out,till_id
+employee_id,employee_name,clock_in,clock_out,till_id
 E006,Tom Wallace,2026-09-07 06:00,2026-09-07 14:00,T1
 E001,Amelia Okonjo,2026-09-07T08:00:00+00:00,2026-09-07T16:30:00+00:00,T1
 C003,Chloé Marchand,07-09-2026 09:00 AM,07-09-2026 05:30 PM,T2
