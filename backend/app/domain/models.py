@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
@@ -43,7 +43,7 @@ class MasterModel:
     status: ShiftStatus
     anomaly_flags: List[str] = field(default_factory=list)
     associated_rota_shift_id: Optional[str] = None
-    last_updated_at: datetime = field(default_factory=datetime.utcnow)
+    last_updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     audit_log: List[AuditLogEntry] = field(default_factory=list)
 
 @dataclass(frozen=True)

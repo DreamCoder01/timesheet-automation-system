@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import { FileClock } from "lucide-react";
-import { apiService } from "./services/apiService";
-import { IGlobalDashboardPayload } from "./models/anomalyExceptionInterface";
-import FileUploader from "./components/FileUploader";
-import MetricsGrid from "./components/MetricsGrid";
-import TimesheetTable from "./components/TimesheetTable";
-import AnomaliesAlert from "./components/AnomaliesAlert";
+import { apiService } from "../services/apiService";
+import { IGlobalDashboardPayload } from "../models/anomalyExceptionInterface";
+import FileUploader from "../components/FileUploader";
+import MetricsGrid from "../components/MetricsGrid";
+import TimesheetTable from "../components/TimesheetTable";
+import AnomaliesAlert from "../components/AnomaliesAlert";
 
 export default function DashboardPage() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);

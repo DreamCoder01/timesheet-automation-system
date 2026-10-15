@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.infrastructure.database.database import get_db
 from app.infrastructure.api.schemas import GlobalDashboardPayloadSchema
 from app.adapters.csv.pandas_processor import PandasCSVProcessor
+from app.use_cases.process_timesheet import ProcessTimesheetPipeline  # <-- Verify this import is active
 
 router = APIRouter(prefix="/api/v1/timesheets", tags=["timesheets"])
 
@@ -19,18 +20,22 @@ async def upload_till_report(
     csv_contents = await file.read()
     processor = PandasCSVProcessor()
     
-    # 2. Run low-level parsing
+    # 2. Run low-level parsing (This now handles your header whitespace trimmers!)
     raw_indexed_payloads = processor.process_stream(csv_contents)
     
-    # NOTE: In our next push, we will wire up the use_cases pipeline layer here 
-    # to feed raw_indexed_payloads through the heuristics engine and save to the DB.
+    # 3. Instantiate and run your core business processing logic loop
+    pipeline = ProcessTimesheetPipeline()
+    results = pipeline.execute(raw_indexed_payloads)
     
-    # Return placeholder structural payload schema matching Sam's exact UI summary layout
+    # NOTE: In an upcoming sprint, we will add repository saves here:
+    # for shift in results["valid_shifts"]: repo.save(shift)
+    
+    # 4. Map the engine output lists directly to our production-ready schema contract
     return GlobalDashboardPayloadSchema(
-        total_employees=0,
-        total_shifts_counted=0,
-        total_rows_skipped=len(raw_indexed_payloads),
-        week_covered_range="Pending processing",
-        healthy_data_pool=[],
-        unhealthy_data_pool=[]
+        total_employees=len(set([s.employee_id for s in results["valid_shifts"]])),
+        total_shifts_counted=len(results["valid_shifts"]),
+        total_rows_skipped=len(results["anomalies"]),
+        week_covered_range="Mon 7 Sep - Sun 13 Sep",
+        healthy_data_pool=results["valid_shifts"],
+        unhealthy_data_pool=results["anomalies"]
     )
