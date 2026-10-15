@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Tuple, Dict, Any
 from app.domain.models import (
-    MasterModel, AnomalyExceptionModel, ShiftStatus, 
+    ValidatedShiftModel, AnomalyExceptionModel, ShiftStatus, 
     AnomalyCategory, ErrorSeverity, InferredContext
 )
 from app.use_cases.heuristic_parser import HeuristicTimestampParser
@@ -19,7 +19,7 @@ class ProcessTimesheetPipeline:
         self.deduplicator = IdempotencyDeduplicator()
 
     def execute(self, indexed_payloads: List[Tuple[int, RawInputPayload]]) -> Dict[str, Any]:
-        valid_shifts: List[MasterModel] = []
+        valid_shifts: List[ValidatedShiftModel] = []
         quarantined_anomalies: List[AnomalyExceptionModel] = []
 
         fallback_week_date = "2026-09-07"
@@ -67,7 +67,7 @@ class ProcessTimesheetPipeline:
 
                 raw_m, payable_m, overnight_flag = self.accumulator.calculate_durations(parsed_in, parsed_out)
 
-                valid_shifts.append(MasterModel(
+                valid_shifts.append(ValidatedShiftModel(
                     entry_id=str(uuid.uuid4()),
                     employee_id=payload.employee_id,
                     employee_full_name=payload.employee_name or "Unknown Employee",

@@ -1,17 +1,33 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from typing import List, Optional
 from datetime import datetime
 
 class ShiftResponseSchema(BaseModel):
+    entry_id: str
     employee_id: str
     employee_full_name: str
+    department_id: str
     shift_date: str
-    hours_display: str  # Format: "44:30"
-    decimal_hours: float  # Format: 44.50
+    total_payable_minutes: int
     status: str
 
     class Config:
         from_attributes = True
+
+    @computed_field
+    @property
+    def hours_display(self) -> str:
+        """Dynamically translates absolute raw base-60 minutes into standard '44:30' clock text formats."""
+        hours = self.total_payable_minutes // 60
+        minutes = self.total_payable_minutes % 60
+        return f"{hours}:{minutes:02d}"
+
+    @computed_field
+    @property
+    def decimal_hours(self) -> float:
+        """Converts internal granular base-60 integer values into clean payroll base-10 floats."""
+        return round(self.total_payable_minutes / 60.0, 2)
+
 
 class AnomalyResponseSchema(BaseModel):
     exception_id: str
@@ -23,6 +39,7 @@ class AnomalyResponseSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class GlobalDashboardPayloadSchema(BaseModel):
     total_employees: int

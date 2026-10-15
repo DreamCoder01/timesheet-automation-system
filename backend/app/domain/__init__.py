@@ -1,5 +1,5 @@
 from app.domain.models import (
-    MasterModel, 
+    ValidatedShiftModel, 
     AnomalyExceptionModel, 
     RawInputPayload, 
     InferredContext,
@@ -14,7 +14,7 @@ from app.domain.exceptions import (
 )
 
 __all__ = [
-    "MasterModel",
+    "ValidatedShiftModel",
     "AnomalyExceptionModel",
     "RawInputPayload",
     "InferredContext",

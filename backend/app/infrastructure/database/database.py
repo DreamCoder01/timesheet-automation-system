@@ -1,20 +1,17 @@
-import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# Define path targeting a localized file-backed persistence engine
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./timesheet_automation.db")
+SQLALCHEMY_DATABASE_URL = "sqlite:///./timesheet_automation.db"
 
-# connect_args={"check_same_thread": False} is required exclusively for SQLite to facilitate multi-threaded async requests safely
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 Base = declarative_base()
 
 def get_db():
-    """Contextual dependency provider generator yielding isolated database transactional units."""
     db = SessionLocal()
     try:
         yield db
