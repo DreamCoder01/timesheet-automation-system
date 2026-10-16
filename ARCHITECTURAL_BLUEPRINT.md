@@ -10,8 +10,8 @@ This document outlines the complete, production-grade directory and file bluepri
    The layers inside the backend follow a strict inward-pointing path. Modules inside `/domain` or `/use_cases` are forbidden from importing files from `/adapters` or `/infrastructure`. They remain pure Python logic, insulated from database engines or API frameworks.
 2. **The Database Decoupling Principle:**
    `/adapters/repository/interfaces.py` specifies Abstract Base Classes (interfaces) for data persistence. The use cases interact exclusively with these abstractions. If you migrate from **SQLite** to **PostgreSQL**, the underlying calculation engines remain entirely untouched.
-3. **Frontend Separation of Concerns:**
-   Application state is handled globally within the parent view page controller (`page.tsx`) and the transport client utility (`apiService.ts`). Shared UI components reside outside the routing directory inside `/src/components` and act as presentational nodes that ingest properties and emit functional event triggers, preventing state fragmentation.
+3. **Frontend Separation of Concerns & Containerized Proxies:**
+   Application state is handled globally within the parent view page controller (`page.tsx`) and the transport client utility (`apiService.ts`). Component testing follows the **Colocation Principle**; test modules live inside a local `__tests__` folder directly next to the implementation. When containerized, the Next.js rewrite engine replaces relative routes with the internal Docker domain `BACKEND_PROXY_URL=http://backend:8000` to prevent localhost collision failures.
 
 ---
 
@@ -22,11 +22,12 @@ This document outlines the complete, production-grade directory and file bluepri
 │
 ├── README.md                           # Global system setup, environment definitions, and unified run scripts
 ├── .gitignore                          # Master version control exclusion configurations (blocks .db and .coverage)
-├── docker-compose.yml                  # Local development orchestration (Containers for frontend and backend boundaries)
+├── docker-compose.yml                  # Local orchestration running separate frontend and backend container blocks
 │
 ├── /backend                            # Python FastAPI Backend Services
 │   ├── main.py                         # Application entrypoint; bootstraps frameworks and runs ASGI server
 │   ├── requirements.txt                # Fixed pinning for FastAPI, Pandas, SQLAlchemy, Pydantic, httpx, coverage
+│   ├── Dockerfile                      # slim-python environment definition compiling pinned dependencies
 │   ├── .env.example                    # Template for database paths, environment flags, and CORS configurations
 │   │
 │   ├── /app
@@ -53,8 +54,8 @@ This document outlines the complete, production-grade directory and file bluepri
 │   │   │   │
 │   │   │   └── /repository             # Data persistence contracts and mappings
 │   │   │       ├── __init__.py
-│   │   │       ├── interfaces.py       # Abstract Base Classes for Timesheet and Anomaly data access
-│   │   │       └── sql_repository.py   # Concrete implementation of interfaces using SQLAlchemy mapping tools
+│   │   │       ├── interfaces.py       # Abstract Base Classes for ValidatedShiftModel and AnomalyExceptionModel
+│   │   │       └── sql_repository.py   # Concrete implementation of interfaces mapped to Timesheet and Anomaly tables
 │   │   │
 │   │   └── /infrastructure             # LAYER 1: Frameworks & Drivers (The external boundary shell)
 │   │       ├── __init__.py
@@ -63,7 +64,7 @@ This document outlines the complete, production-grade directory and file bluepri
 │   │       │   ├── __init__.py
 │   │       │   ├── deps.py             # Dependency Injection definitions (e.g., Database sessions)
 │   │       │   ├── schemas.py          # Pydantic explicit Response contracts (e.g., ValidatedShiftResponse)
-│   │       │   └── v1_endpoints.py     # REST endpoints parsing payloads and returning response contracts
+│   │       │   └── v1_endpoints.py     # REST endpoints returning GlobalDashboardPayloadResponse packages
 │   │       │
 │   │       └── /database               # Relational Database Connections
 │   │           ├── __init__.py
@@ -71,43 +72,58 @@ This document outlines the complete, production-grade directory and file bluepri
 │   │           ├── database.py         # Engine configuration, pooling setups, and local session initializers
 │   │           └── schemas_db.py       # Relational database table schemas (Timesheet and Anomaly tables)
 │   │
-│   └── /tests                          # Complete Testing Harness (Mirrors Production App Layout Directories)
+│   └── /tests                          # Backend Testing Harness (Mirrors Production App Layout)
 │       ├── __init__.py
 │       ├── /domain
 │       │   └── test_exceptions.py      # Isolate verification for domain exceptions
 │       ├── /adapters
+│       │   ├── __init__.py
 │       │   ├── /csv
 │       │   │   └── test_pandas_processor.py # Stream buffer parsing boundary tests
 │       │   └── /repository
-│       │       └── test_sql_repository.py   # Ephemeral RAM-isolated in-memory SQLite database tests
+│       │       ├── __init__.py
+│       │       └── test_sql_repository.py   # RAM-isolated in-memory SQLite database and abstract base interface tests
 │       └── /infrastructure
+│           ├── __init__.py
 │           └── /api
-│               └── test_v1_endpoints.py     # High-concurrency TestClient network payload serialization tests
+│               └── test_v1_endpoints.py     # TestClient network payload serialization and break deduction tests
 │
 └── /frontend                           # Next.js Frontend Web Application
-    ├── package.json                    # Component library dependencies, Tailwind configurations, Next.js setups
-    ├── tailwind.config.js              # UI styling rules, color schemes (amber/neutral overrides matching design)
-    ├── postcss.config.js               # PostCSS compilation configuration hooking in @tailwindcss/postcss
+    ├── package.json                    # Dependencies, scripts, and security overrides (Vitest, Happy DOM, PostCSS)
     ├── tsconfig.json                   # TypeScript compiling parameters and module alias definitions (@/*)
-    ├── react-app-env.d.ts              # Global TypeScript asset typings declaration authorising .css module maps
-    ├── next.config.js                  # Optimization configurations and backend proxy API path redirects
+    ├── react-app-env.d.ts              # Global TypeScript asset typings declaration authorising CSS maps
+    ├── next.config.js                  # Proxy configuration with dynamic environmental BACKEND_PROXY_URL hooks
+    ├── postcss.config.js               # PostCSS compilation configuration hooking in @tailwindcss/postcss
+    ├── tailwind.config.js              # UI styling rules, color schemes (amber/neutral overrides matching design)
+    ├── vitest.config.ts                # Test runner configuration (SWC compiler binding, happy-dom environment, 80% thresholds)
+    ├── vitest.setup.ts                 # Global test environment configuration (mocks next/navigation, stubs window.alert)
+    ├── Dockerfile                      # slim-node environment container using npm ci cache hydration loops
     │
     └── /src                            # Monorepo Frontend Flat Source Architecture
-        ├── /components                 # Pure Presentational UI Components
+        ├── /components                 # Presentational UI Components with Colocated Test Modules
         │   ├── FileUploader.tsx        # Drag-and-drop file ingestion boundary wrapper
         │   ├── MetricsGrid.tsx         # Renders the horizontal metric KPI summary blocks
         │   ├── TimesheetTable.tsx      # Renders clean employee totals and decimal breakdowns
-        │   └── AnomaliesAlert.tsx      # Interactive box rendering quarantined error logs for operator review
+        │   ├── AnomaliesAlert.tsx      # Interactive box rendering quarantined error logs
+        │   └── /__tests__              # Presentational Unit Test Suites
+        │       ├── AnomaliesAlert.test.tsx # Verifies conditional status layout structures and data arrays
+        │       ├── FileUploader.test.tsx   # Simulates browser File blob changes and drag-and-drop event cycles
+        │       ├── MetricsGrid.test.tsx    # Evaluates standard number strings and zero fallback branches
+        │       └── TimesheetTable.test.tsx # Validates table cell rendering and regex formatting lookups
         │
-        ├── /models                     # TypeScript structural interfaces matching the explicit Backend Responses
+        ├── /models                     # TypeScript structural interfaces matching backend Response contracts
         │   ├── validatedShiftInterface.ts    # Maps ValidatedShiftResponse structures
-        │   └── anomalyExceptionInterface.ts  # Maps AnomalyExceptionResponse structures
+        │   └── anomalyExceptionInterface.ts  # Maps AnomalyExceptionResponse and IGlobalDashboardPayload structures
         │
         ├── /services                   # HTTP Client Network Layer
-        │   └── apiService.ts           # Fetch client abstraction managing backend API proxies and exception trapping
+        │   ├── apiService.ts           # Singleton instance managing fetch transactions, backend proxies, and error logging
+        │   └── /__tests__
+        │       └── apiService.test.ts  # Intercepts global fetch streams to verify network transactions and error trapping
         │
         └── /app                        # Next.js App Router Tree Architecture (Dedicated strictly to routing shells)
-            ├── globals.css             # Unified Tailwind CSS v4 directive entrypoint file
-            ├── layout.tsx              # Global HTML document context wrapper mounting styles and viewport configurations
-            └── page.tsx                # Primary Dashboard Base View Controller orchestrating presentation states
+            ├── globals.css             # Unified Tailwind CSS directive entrypoint file
+            ├── layout.tsx              # Global HTML document context wrapper mounting styles and viewports
+            ├── page.tsx                # Primary Dashboard base controller orchestrating state changes
+            └── /__tests__
+                └── page.test.tsx       # Integration suite verifying initialization states in concurrent hydration trees
 ```

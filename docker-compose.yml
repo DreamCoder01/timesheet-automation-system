@@ -1,0 +1,36 @@
+services:
+  # --- Backend Service Boundary Shell ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_db:/app/data
+    environment:
+      - ENV=development
+      - DATABASE_URL=sqlite:///./data/timesheet_automation.db
+    restart: always
+
+  # --- Frontend Next.js Dashboard Shell ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/.next
+      - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - BACKEND_PROXY_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  backend_db:
