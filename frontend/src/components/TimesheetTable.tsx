@@ -10,6 +10,25 @@ interface TimesheetTableProps {
 export default function TimesheetTable({ shifts }: TimesheetTableProps) {
   if (shifts.length === 0) return null;
 
+  // 1. Parse hours_display strings ("7:30") to sum total minutes using your existing fields safely
+  const totalMinutes = shifts.reduce((acc, shift) => {
+    const [hours, minutes] = (shift.hours_display || "0:00")
+      .split(":")
+      .map(Number);
+    return acc + (hours * 60 + minutes);
+  }, 0);
+
+  // 2. Accumulate base-10 decimal hours floats directly
+  const totalDecimal = shifts.reduce(
+    (acc, shift) => acc + (shift.decimal_hours || 0),
+    0,
+  );
+
+  // 3. Re-format the accumulated minutes back into a standard "X:XX" clock string configuration
+  const totalHoursPart = Math.floor(totalMinutes / 60);
+  const totalMinutesPart = totalMinutes % 60;
+  const totalHoursDisplay = `${totalHoursPart}:${totalMinutesPart.toString().padStart(2, "0")}`;
+
   return (
     <div className="w-full bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden mb-8">
       <div className="px-6 py-4 border-b border-neutral-100 bg-neutral-50/50">
@@ -51,6 +70,21 @@ export default function TimesheetTable({ shifts }: TimesheetTableProps) {
               </tr>
             ))}
           </tbody>
+          {/* --- Aligned Summary Totals Row --- */}
+          <tfoot className="bg-neutral-50/90 font-bold border-t-2 border-neutral-200 text-neutral-900">
+            <tr className="transition-colors hover:bg-neutral-100/50">
+              <td className="px-6 py-4 text-left font-semibold text-neutral-600">
+                Total Hours
+              </td>
+              <td className="px-6 py-4 text-neutral-400">---</td>
+              <td className="px-6 py-4 font-mono font-bold text-neutral-900">
+                {totalHoursDisplay}
+              </td>
+              <td className="px-6 py-4 text-right font-mono font-bold text-amber-600">
+                {totalDecimal.toFixed(2)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
