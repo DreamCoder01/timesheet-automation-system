@@ -23,7 +23,6 @@ export default function DashboardPage() {
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
     try {
-      // Stream file directly through proxy layer adapters to FastAPI engine loops
       const freshPayload = await apiService.uploadTillReport(file);
       setDashboardData(freshPayload);
     } catch (error) {
@@ -37,10 +36,30 @@ export default function DashboardPage() {
     }
   };
 
+  // Reconcile processing loop handler: Modifies local client state pools instantly
+  const handleReconcileException = (exceptionId: string) => {
+    setDashboardData((prevData) => {
+      const updatedUnhealthyPool = prevData.unhealthy_data_pool.filter(
+        (item) => item.exception_id !== exceptionId,
+      );
+
+      return {
+        ...prevData,
+        total_rows_skipped: updatedUnhealthyPool.length,
+        unhealthy_data_pool: updatedUnhealthyPool,
+      };
+    });
+  };
+
+  // Check if any processed rows exist across pools to prevent empty container shells from leaking
+  const hasActiveData =
+    dashboardData.healthy_data_pool.length > 0 ||
+    dashboardData.unhealthy_data_pool.length > 0;
+
   return (
-    <main className="min-h-screen bg-neutral-50/50 text-neutral-900 selection:bg-amber-100 pb-16">
+    <main className="min-h-screen max-h-screen flex flex-col bg-neutral-50/50 text-neutral-900 selection:bg-amber-100">
       {/* Structural Global Header Shell */}
-      <header className="w-full bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm/5">
+      <header className="w-full bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm/5 shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-amber-50 rounded-lg border border-amber-200">
@@ -63,8 +82,8 @@ export default function DashboardPage() {
       </header>
 
       {/* Primary Dashboard Content Layout Matrix */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        <div className="max-w-3xl mb-8">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex flex-col flex-1 min-h-0 pb-6">
+        <div className="max-w-3xl mb-4 shrink-0">
           <p className="text-sm text-neutral-600 leading-relaxed">
             Upload the weekly report from the till system to total the hours
             worked by each member of the team, then reconcile the weekly total
@@ -72,29 +91,41 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* 1. Global Metric KPI Summary Blocks Section */}
-        <MetricsGrid
-          totalEmployees={dashboardData.total_employees}
-          totalShifts={dashboardData.total_shifts_counted}
-          totalSkipped={dashboardData.total_rows_skipped}
-          weekRange={dashboardData.week_covered_range}
-        />
-
-        {/* 2. Drag-and-Drop System File Ingestion Panel Boundary */}
-        <FileUploader
-          onUploadSuccess={handleFileUpload}
-          isProcessing={isProcessing}
-        />
-
-        {/* 3. Splitting Grid Layout for Valid Outputs and Quarantined Items */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          <div className="lg:col-span-2">
-            <TimesheetTable shifts={dashboardData.healthy_data_pool} />
-          </div>
-          <div className="lg:col-span-1">
-            <AnomaliesAlert anomalies={dashboardData.unhealthy_data_pool} />
-          </div>
+        {/* Global Metric KPI Summary Blocks Section */}
+        <div className="shrink-0">
+          <MetricsGrid
+            totalEmployees={dashboardData.total_employees}
+            totalShifts={dashboardData.total_shifts_counted}
+            totalSkipped={dashboardData.total_rows_skipped}
+            weekRange={dashboardData.week_covered_range}
+          />
         </div>
+
+        {/* Drag-and-Drop System File Ingestion Panel Boundary */}
+        <div className="shrink-0">
+          <FileUploader
+            onUploadSuccess={handleFileUpload}
+            isProcessing={isProcessing}
+          />
+        </div>
+
+        {/* --- Viewport-Isolated Layout Grid Matrix --- */}
+        {hasActiveData && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start lg:items-stretch flex-1 min-h-0 overflow-hidden mb-4">
+            {/* Left Table Section Layout: Scroll management handed cleanly into the child table component */}
+            <div className="lg:col-span-2 flex flex-col h-full overflow-hidden border border-neutral-200 rounded-xl bg-white shadow-sm">
+              <TimesheetTable shifts={dashboardData.healthy_data_pool} />
+            </div>
+
+            {/* Right Anomalies Section Layout */}
+            <div className="lg:col-span-1 flex flex-col h-full min-h-0 overflow-hidden">
+              <AnomaliesAlert
+                anomalies={dashboardData.unhealthy_data_pool}
+                onReconcile={handleReconcileException}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

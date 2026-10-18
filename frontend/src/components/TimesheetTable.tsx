@@ -10,7 +10,7 @@ interface TimesheetTableProps {
 export default function TimesheetTable({ shifts }: TimesheetTableProps) {
   if (shifts.length === 0) return null;
 
-  // 1. Parse hours_display strings ("7:30") to sum total minutes using your existing fields safely
+  // 1. Parse hours_display strings ("7:30") to sum total minutes safely
   const totalMinutes = shifts.reduce((acc, shift) => {
     const [hours, minutes] = (shift.hours_display || "0:00")
       .split(":")
@@ -30,62 +30,69 @@ export default function TimesheetTable({ shifts }: TimesheetTableProps) {
   const totalHoursDisplay = `${totalHoursPart}:${totalMinutesPart.toString().padStart(2, "0")}`;
 
   return (
-    <div className="w-full bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden mb-8">
-      <div className="px-6 py-4 border-b border-neutral-100 bg-neutral-50/50">
+    <div className="w-full h-full flex flex-col bg-white overflow-hidden">
+      {/* Title section - Rigidly locked at the top */}
+      <div className="px-6 py-4 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
         <h3 className="font-semibold text-neutral-800 text-sm">
           Processed Employee Records
         </h3>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-neutral-200 bg-neutral-50 text-xs font-bold text-neutral-400 uppercase tracking-wider">
-              <th className="px-6 py-3">Employee</th>
-              <th className="px-6 py-3">Shift Date</th>
-              <th className="px-6 py-3">Hours</th>
-              <th className="px-6 py-3 text-right">Decimal</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100 text-sm text-neutral-700">
-            {shifts.map((shift, idx) => (
-              <tr
-                key={idx}
-                className="hover:bg-neutral-50/50 transition-colors"
-              >
-                <td className="px-6 py-4 font-medium text-neutral-900">
-                  {shift.employee_full_name}{" "}
-                  <span className="text-xs text-neutral-400 ml-1">
-                    ({shift.employee_id})
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-neutral-500">
-                  {shift.shift_date}
-                </td>
-                <td className="px-6 py-4 font-mono font-medium text-neutral-800">
-                  {shift.hours_display}
-                </td>
-                <td className="px-6 py-4 text-right font-mono font-semibold text-amber-600">
-                  {shift.decimal_hours.toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          {/* --- Aligned Summary Totals Row --- */}
-          <tfoot className="bg-neutral-50/90 font-bold border-t-2 border-neutral-200 text-neutral-900">
-            <tr className="transition-colors hover:bg-neutral-100/50">
-              <td className="px-6 py-4 text-left font-semibold text-neutral-600">
-                Total Hours
-              </td>
-              <td className="px-6 py-4 text-neutral-400">---</td>
-              <td className="px-6 py-4 font-mono font-bold text-neutral-900">
-                {totalHoursDisplay}
-              </td>
-              <td className="px-6 py-4 text-right font-mono font-bold text-amber-600">
-                {totalDecimal.toFixed(2)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+
+      {/* --- CEMENTED HEADERS LAYER --- */}
+      {/* This row sits outside the scrolling view completely, preventing any bounce or jitter */}
+      <div className="border-b border-neutral-200 bg-neutral-50 text-xs font-bold text-neutral-400 uppercase tracking-wider shrink-0 px-6 py-3">
+        <div className="grid grid-cols-12 gap-4 items-center">
+          <div className="col-span-5">Employee</div>
+          <div className="col-span-3">Shift Date</div>
+          <div className="col-span-2">Hours</div>
+          <div className="col-span-2 text-right">Decimal</div>
+        </div>
+      </div>
+
+      {/* --- SCROLLABLE DATA BODY --- */}
+      {/* This container captures the scroll context independently */}
+      <div className="flex-1 overflow-y-auto min-h-0 pr-1 select-none">
+        <div className="divide-y divide-neutral-100 text-sm text-neutral-700 px-6">
+          {shifts.map((shift, idx) => (
+            <div
+              key={idx}
+              className="grid grid-cols-12 gap-4 items-center py-4 hover:bg-neutral-50/50 transition-colors"
+            >
+              <div className="col-span-5 font-medium text-neutral-900 truncate pr-2">
+                {shift.employee_full_name}{" "}
+                <span className="text-xs text-neutral-400 font-normal block lg:inline lg:ml-1">
+                  ({shift.employee_id})
+                </span>
+              </div>
+              <div className="col-span-3 text-neutral-500 whitespace-nowrap">
+                {shift.shift_date}
+              </div>
+              <div className="col-span-2 font-mono font-medium text-neutral-800 whitespace-nowrap">
+                {shift.hours_display}
+              </div>
+              <div className="col-span-2 text-right font-mono font-semibold text-amber-600 whitespace-nowrap">
+                {shift.decimal_hours.toFixed(2)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* --- FLOATING TOTALS BASELINE --- */}
+      {/* Lifted completely outside the scroll body container */}
+      <div className="border-t-2 border-neutral-200 bg-neutral-50/90 font-bold text-neutral-900 px-6 py-4 shrink-0 shadow-[0_-2px_10px_0_rgba(0,0,0,0.02)]">
+        <div className="grid grid-cols-12 gap-4 items-center text-sm">
+          <div className="col-span-5 font-semibold text-neutral-600">
+            Total Hours
+          </div>
+          <div className="col-span-3"></div>
+          <div className="col-span-2 font-mono font-bold text-neutral-900 whitespace-nowrap">
+            {totalHoursDisplay}
+          </div>
+          <div className="col-span-2 text-right font-mono font-bold text-amber-600 whitespace-nowrap">
+            {totalDecimal.toFixed(2)}
+          </div>
+        </div>
       </div>
     </div>
   );
