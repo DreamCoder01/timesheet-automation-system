@@ -1,42 +1,97 @@
 import { expect, test, describe } from "vitest";
 import { render, screen } from "@testing-library/react";
 import React from "react";
+import "@testing-library/jest-dom";
 import TimesheetTable from "../TimesheetTable";
+import { IValidatedShiftSummary } from "../../models/validatedShiftInterface";
 
 describe("TimesheetTable Presentation Component Test Suite", () => {
-  test("Scenario A: cleanly renders formatted employee shift entries and verified footer totals", () => {
-    const mockShifts: any[] = [
+  test("Scenario A: returns a null layout view tree and renders nothing when shifts array is completely empty", () => {
+    const { container } = render(<TimesheetTable shifts={[]} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  test("Scenario B: cleanly renders stationary headers, row details, and aggregates summary totals for single shifts", () => {
+    const mockShifts: IValidatedShiftSummary[] = [
       {
-        employee_id: "E006",
-        employee_full_name: "Tom Wallace",
-        shift_date: "2026-09-07",
+        employee_id: "EMP-001",
+        employee_full_name: "Sarah Connor",
+        shift_date: "2026-10-18",
         hours_display: "7:30",
         decimal_hours: 7.5,
-        status: "Complete",
+        status: "Complete" as const,
       },
     ];
 
     render(<TimesheetTable shifts={mockShifts} />);
 
-    expect(screen.getByText(/E006/i)).toBeInTheDocument();
-    expect(screen.getByText(/Tom Wallace/i)).toBeInTheDocument();
-    expect(screen.getByText("2026-09-07")).toBeInTheDocument();
-    expect(screen.getByText("Total Hours")).toBeInTheDocument();
+    expect(screen.getByText("Processed Employee Records")).toBeInTheDocument();
+    expect(screen.getByText("Employee")).toBeInTheDocument();
+    expect(screen.getByText("Shift Date")).toBeInTheDocument();
 
-    // Fixed: Uses getAllByText to safely account for both the row entry and footer total
+    expect(screen.getByText(/Sarah Connor/i)).toBeInTheDocument();
+    expect(screen.getByText("(EMP-001)")).toBeInTheDocument();
+    expect(screen.getByText("2026-10-18")).toBeInTheDocument();
+
+    // Using getAllByText explicitly handles duplicate hour counts across row and footer segments
     const hoursElements = screen.getAllByText("7:30");
-    expect(hoursElements).toHaveLength(2);
+    expect(hoursElements.length).toBe(2);
 
-    const decimalElements = screen.getAllByText(/7.50/);
-    expect(decimalElements).toHaveLength(2);
+    const decimalElements = screen.getAllByText("7.50");
+    expect(decimalElements.length).toBe(2);
+
+    expect(screen.getByText("Total Hours")).toBeInTheDocument();
   });
 
-  test("Scenario B: handles empty datasets gracefully and triggers code branch fallbacks", () => {
-    render(<TimesheetTable shifts={[]} />);
-    const employeeRowCell = screen.queryByText(/E006/i);
-    const totalsRowLabel = screen.queryByText("Total Hours");
+  test("Scenario C: executes mathematical time-parsing algorithms correctly across complex hour boundaries", () => {
+    const complexMultiShifts: IValidatedShiftSummary[] = [
+      {
+        employee_id: "EMP-002",
+        employee_full_name: "John Connor",
+        shift_date: "2026-10-14",
+        hours_display: "8:45",
+        decimal_hours: 8.75,
+        status: "Complete" as const,
+      },
+      {
+        employee_id: "EMP-002",
+        employee_full_name: "John Connor",
+        shift_date: "2026-10-15",
+        hours_display: "11:35",
+        decimal_hours: 11.5833,
+        status: "Flagged" as const,
+      },
+    ];
 
-    expect(employeeRowCell).not.toBeInTheDocument();
-    expect(totalsRowLabel).not.toBeInTheDocument();
+    render(<TimesheetTable shifts={complexMultiShifts} />);
+
+    expect(screen.getByText("20:20")).toBeInTheDocument();
+    expect(screen.getByText("20.33")).toBeInTheDocument();
+  });
+
+  test("Scenario D: ensures mathematical structural padding applies correctly to single-digit minute string aggregates", () => {
+    const paddingTestShifts: IValidatedShiftSummary[] = [
+      {
+        employee_id: "EMP-003",
+        employee_full_name: "Kyle Reese",
+        shift_date: "2026-10-16",
+        hours_display: "4:02",
+        decimal_hours: 4.0333,
+        status: "Processing" as const,
+      },
+      {
+        employee_id: "EMP-003",
+        employee_full_name: "Kyle Reese",
+        shift_date: "2026-10-17",
+        hours_display: "2:03",
+        decimal_hours: 2.05,
+        status: "Anomaly" as const,
+      },
+    ];
+
+    render(<TimesheetTable shifts={paddingTestShifts} />);
+
+    expect(screen.getByText("6:05")).toBeInTheDocument();
+    expect(screen.getByText("6.08")).toBeInTheDocument();
   });
 });

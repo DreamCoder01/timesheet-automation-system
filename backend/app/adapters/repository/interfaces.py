@@ -3,33 +3,41 @@ from typing import List, Optional
 from app.domain.models import AnomalyExceptionModel, ValidatedShiftModel
 
 class ITimesheetRepository(ABC):
-    """Abstract storage interface enforcing architectural isolation for valid shifts."""
+    """Abstract data gateway interface isolating valid timesheet records from database contexts."""
     
     @abstractmethod
     def save_shift(self, shift: ValidatedShiftModel) -> None:
-        """Persists a valid processed employee master shift model."""
         pass
 
     @abstractmethod
     def get_shifts_by_employee(self, employee_id: str) -> List[ValidatedShiftModel]:
-        """Retrieves all valid stored shifts for an individual employee context."""
         pass
 
     @abstractmethod
     def get_all_shifts(self) -> List[ValidatedShiftModel]:
-        """Retrieves every single valid processed shift within the database."""
         pass
 
 
 class IAnomalyRepository(ABC):
-    """Abstract storage interface enforcing architectural isolation for anomalies."""
+    """Abstract data gateway interface isolating quarantined exceptions from database contexts."""
 
     @abstractmethod
     def save_anomaly(self, anomaly: AnomalyExceptionModel) -> None:
-        """Quarantines an anomalous tracking exception record."""
         pass
 
     @abstractmethod
     def get_unresolved_anomalies(self) -> List[AnomalyExceptionModel]:
-        """Retrieves all quarantined log entries awaiting operator resolution."""
+        pass
+
+    @abstractmethod
+    def get_anomaly_by_id(self, exception_id: str) -> Optional[AnomalyExceptionModel]:
+        pass
+
+    @abstractmethod
+    def get_adjacent_context_window(self, center_line: int, window_size: int = 2) -> List[AnomalyExceptionModel]:
+        """Queries historical entries surrounding a target line to provide visual context hooks."""
+        pass
+
+    @abstractmethod
+    def resolve_anomaly(self, exception_id: str, operator_name: str) -> Optional[AnomalyExceptionModel]:
         pass

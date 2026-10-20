@@ -17,7 +17,7 @@ class ShiftResponseSchema(BaseModel):
     @computed_field
     @property
     def hours_display(self) -> str:
-        """Dynamically translates absolute raw base-60 minutes into standard '44:30' clock text formats."""
+        """Dynamically translates absolute raw minutes into standard 'H:MM' formats."""
         hours = self.total_payable_minutes // 60
         minutes = self.total_payable_minutes % 60
         return f"{hours}:{minutes:02d}"
@@ -36,9 +36,22 @@ class AnomalyResponseSchema(BaseModel):
     error_severity: str
     diagnostic_message: str
     resolution_status: str
+    
+    # Exposed raw payload strings back to frontend visual layers
+    raw_employee_id: Optional[str] = None
+    raw_employee_name: Optional[str] = None
+    raw_clock_in: Optional[str] = None
+    raw_clock_out: Optional[str] = None
+    raw_till_id: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class ContextWindowPayloadSchema(BaseModel):
+    """Container schema sending adjacent line references back to help user inference tracks."""
+    center_line: int
+    adjacent_rows: List[AnomalyResponseSchema]
 
 
 class GlobalDashboardPayloadSchema(BaseModel):
@@ -48,3 +61,12 @@ class GlobalDashboardPayloadSchema(BaseModel):
     week_covered_range: str
     healthy_data_pool: List[ShiftResponseSchema]
     unhealthy_data_pool: List[AnomalyResponseSchema]
+
+
+class ReconciliationCorrectionSchema(BaseModel):
+    """Input payload container capturing administrative corrections from the frontend modal form."""
+    employee_id: Optional[str] = None
+    employee_name: Optional[str] = None
+    clock_in: Optional[str] = None
+    clock_out: Optional[str] = None
+    till_id: Optional[str] = None

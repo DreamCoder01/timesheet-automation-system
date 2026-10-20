@@ -1,16 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileClock } from "lucide-react";
-import { apiService } from "../services/apiService";
-import { IGlobalDashboardPayload } from "../models/anomalyExceptionInterface";
+import { apiService, IReconciliationCorrection } from "../services/apiService";
+import {
+  IGlobalDashboardPayload,
+  IAnomalyExceptionSummary,
+} from "../models/anomalyExceptionInterface";
 import FileUploader from "../components/FileUploader";
 import MetricsGrid from "../components/MetricsGrid";
 import TimesheetTable from "../components/TimesheetTable";
 import AnomaliesAlert from "../components/AnomaliesAlert";
+import ReconciliationModal from "../components/ReconciliationModal";
 
 export default function DashboardPage() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [activeAnomaly, setActiveAnomaly] =
+    useState<IAnomalyExceptionSummary | null>(null);
+
   const [dashboardData, setDashboardData] = useState<IGlobalDashboardPayload>({
     total_employees: 0,
     total_shifts_counted: 0,
@@ -19,6 +26,14 @@ export default function DashboardPage() {
     healthy_data_pool: [],
     unhealthy_data_pool: [],
   });
+
+  // Pull existing records from storage boundaries natively on view initiation
+  useEffect(() => {
+    apiService
+      .getDashboardData()
+      .then((data) => setDashboardData(data))
+      .catch((err) => console.error("Initial dashboard fetch failed:", err));
+  }, []);
 
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
@@ -36,29 +51,42 @@ export default function DashboardPage() {
     }
   };
 
-  // Reconcile processing loop handler: Modifies local client state pools instantly
-  const handleReconcileException = (exceptionId: string) => {
-    setDashboardData((prevData) => {
-      const updatedUnhealthyPool = prevData.unhealthy_data_pool.filter(
-        (item) => item.exception_id !== exceptionId,
-      );
-
-      return {
-        ...prevData,
-        total_rows_skipped: updatedUnhealthyPool.length,
-        unhealthy_data_pool: updatedUnhealthyPool,
-      };
-    });
+  // Intercepts the card click loop, pulling item reference parameters into view focus context
+  const handleOpenReconcileModal = (exceptionId: string) => {
+    const selectedAnomaly = dashboardData.unhealthy_data_pool.find(
+      (item) => item.exception_id === exceptionId,
+    );
+    if (selectedAnomaly) {
+      setActiveAnomaly(selectedAnomaly);
+    }
   };
 
-  // Check if any processed rows exist across pools to prevent empty container shells from leaking
+  // Submits the manual operator corrections payload down to server frameworks
+  const handleExecuteReconciliation = async (
+    corrections: IReconciliationCorrection,
+  ) => {
+    if (!activeAnomaly) return;
+
+    // Transmit data down through gateway pipelines
+    await apiService.reconcileAnomalyRecord(
+      activeAnomaly.exception_id,
+      corrections,
+    );
+
+    // Refresh core dashboard datasets entirely to trigger smooth, cross-table state synchronization updates
+    const refreshedDashboardData = await apiService.getDashboardData();
+    setDashboardData(refreshedDashboardData);
+
+    // Close modal viewport safely
+    setActiveAnomaly(null);
+  };
+
   const hasActiveData =
     dashboardData.healthy_data_pool.length > 0 ||
     dashboardData.unhealthy_data_pool.length > 0;
 
   return (
     <main className="min-h-screen max-h-screen flex flex-col bg-neutral-50/50 text-neutral-900 selection:bg-amber-100">
-      {/* Structural Global Header Shell */}
       <header className="w-full bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm/5 shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -81,7 +109,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Primary Dashboard Content Layout Matrix */}
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 flex flex-col flex-1 min-h-0 pb-6">
         <div className="max-w-3xl mb-4 shrink-0">
           <p className="text-sm text-neutral-600 leading-relaxed">
@@ -91,7 +118,6 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Global Metric KPI Summary Blocks Section */}
         <div className="shrink-0">
           <MetricsGrid
             totalEmployees={dashboardData.total_employees}
@@ -101,7 +127,6 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Drag-and-Drop System File Ingestion Panel Boundary */}
         <div className="shrink-0">
           <FileUploader
             onUploadSuccess={handleFileUpload}
@@ -109,24 +134,30 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* --- Viewport-Isolated Layout Grid Matrix --- */}
         {hasActiveData && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start lg:items-stretch flex-1 min-h-0 overflow-hidden mb-4">
-            {/* Left Table Section Layout: Scroll management handed cleanly into the child table component */}
             <div className="lg:col-span-2 flex flex-col h-full overflow-hidden border border-neutral-200 rounded-xl bg-white shadow-sm">
               <TimesheetTable shifts={dashboardData.healthy_data_pool} />
             </div>
 
-            {/* Right Anomalies Section Layout */}
             <div className="lg:col-span-1 flex flex-col h-full min-h-0 overflow-hidden">
               <AnomaliesAlert
                 anomalies={dashboardData.unhealthy_data_pool}
-                onReconcile={handleReconcileException}
+                onReconcile={handleOpenReconcileModal}
               />
             </div>
           </div>
         )}
       </div>
+
+      {/* Renders overlay form modal box on active selection triggers */}
+      {activeAnomaly && (
+        <ReconciliationModal
+          anomaly={activeAnomaly}
+          onClose={() => setActiveAnomaly(null)}
+          onSubmit={handleExecuteReconciliation}
+        />
+      )}
     </main>
   );
 }
