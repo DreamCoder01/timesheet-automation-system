@@ -1,48 +1,18 @@
-import { expect, test, describe, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { expect, test, describe, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
+import "@testing-library/jest-dom";
 import FileUploader from "../FileUploader";
 
-describe("FileUploader Presentation Component Test Suite", () => {
-  test("Scenario A: fires the upload callback cleanly when a user selects a CSV file via browsing", async () => {
-    const mockFile = new File(
-      ["employee_id,clock_in,clock_out\nE001,09:00,17:00"],
-      "sample_week.csv",
-      {
-        type: "text/csv",
-      },
-    );
-    const mockOnUploadSuccess = vi.fn();
+describe("FileUploader Drag-and-Drop Presentation Component Test Suite", () => {
+  const mockOnUploadSuccess = vi.fn();
 
-    const { container } = render(
-      <FileUploader
-        onUploadSuccess={mockOnUploadSuccess}
-        isProcessing={false}
-      />,
-    );
-
-    // Fixed: Resolves hidden file picker nodes directly using structural selectors
-    const fileInput = container.querySelector(
-      'input[type="file"]',
-    ) as HTMLInputElement;
-
-    await act(async () => {
-      fireEvent.change(fileInput, { target: { files: [mockFile] } });
-    });
-
-    expect(fileInput).toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("alert", vi.fn());
   });
 
-  test("Scenario B: handles file drag and drop interactions smoothly across interface boundaries", async () => {
-    const mockFile = new File(
-      ["employee_id,clock_in,clock_out\nE002,12:00,20:00"],
-      "sample_week.csv",
-      {
-        type: "text/csv",
-      },
-    );
-    const mockOnUploadSuccess = vi.fn();
-
+  test("Scenario A: cleanly renders initial passive state layout upload markers", () => {
     render(
       <FileUploader
         onUploadSuccess={mockOnUploadSuccess}
@@ -50,37 +20,111 @@ describe("FileUploader Presentation Component Test Suite", () => {
       />,
     );
 
-    // Fixed: Locates the active zone target using visible text headers
-    const dropZone = screen.getByText(/drag and drop your report/i);
+    expect(screen.getByText("Till system report")).toBeInTheDocument();
+    expect(
+      screen.getByText(/or drag and drop your report here/i),
+    ).toBeInTheDocument();
+  });
 
-    await act(async () => {
+  test("Scenario B: successfully captures standard input file upload changes and executes callback", () => {
+    const { container } = render(
+      <FileUploader
+        onUploadSuccess={mockOnUploadSuccess}
+        isProcessing={false}
+      />,
+    );
+
+    const fileInput = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    const testFile = new File(
+      ["employee_id,clock_in\nE001,09:00"],
+      "hours.csv",
+      { type: "text/csv" },
+    );
+
+    fireEvent.change(fileInput, { target: { files: [testFile] } });
+
+    expect(mockOnUploadSuccess).toHaveBeenCalledTimes(1);
+    expect(mockOnUploadSuccess).toHaveBeenCalledWith(testFile);
+  });
+
+  test("Scenario C: renders active loading spinners and locks inputs during active processing transitions", () => {
+    const { container } = render(
+      <FileUploader
+        onUploadSuccess={mockOnUploadSuccess}
+        isProcessing={true}
+      />,
+    );
+
+    expect(
+      screen.getByText("Processing timesheet records..."),
+    ).toBeInTheDocument();
+    const fileInput = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    expect(fileInput).toBeDisabled();
+  });
+
+  test("Scenario D: tracks and responds to interactive dragover style updates cleanly", () => {
+    render(
+      <FileUploader
+        onUploadSuccess={mockOnUploadSuccess}
+        isProcessing={false}
+      />,
+    );
+
+    const dropZone = screen
+      .getByText(/or drag and drop your report here/i)
+      .closest("div.border-2");
+    expect(dropZone).toBeInTheDocument();
+
+    if (dropZone) {
       fireEvent.dragOver(dropZone);
-    });
+      expect(dropZone.className).toContain("border-amber-500");
+    }
+  });
 
-    await act(async () => {
+  test("Scenario E: handles empty or invalid unmapped drag-drop events safely to clear alternative branch tracks", () => {
+    const { container } = render(
+      <FileUploader
+        onUploadSuccess={mockOnUploadSuccess}
+        isProcessing={false}
+      />,
+    );
+
+    const dropZone = screen
+      .getByText(/or drag and drop your report here/i)
+      .closest("div.border-2");
+    expect(dropZone).toBeInTheDocument();
+
+    if (dropZone) {
       fireEvent.drop(dropZone, {
-        dataTransfer: { files: [mockFile] },
+        dataTransfer: { files: [] },
       });
-    });
+      expect(mockOnUploadSuccess).not.toHaveBeenCalled();
 
-    expect(dropZone).toBeInTheDocument();
-  });
+      const invalidFile = new File(["logo"], "image.png", {
+        type: "image/png",
+      });
+      fireEvent.drop(dropZone, {
+        dataTransfer: { files: [invalidFile] },
+      });
 
-  test("Scenario C: handles a processing state cleanly by disabling interaction vectors", () => {
-    render(<FileUploader onUploadSuccess={vi.fn()} isProcessing={true} />);
+      expect(window.alert).toHaveBeenCalledWith(
+        "Invalid file type. Please upload a structured .csv file report.",
+      );
+      expect(mockOnUploadSuccess).not.toHaveBeenCalled();
+    }
 
-    const processingText = screen.getByText(/Processing timesheet records/i);
-    expect(processingText).toBeInTheDocument();
-  });
-
-  test("Scenario D: evaluates drag drop events missing dataTransfer payload elements securely", async () => {
-    render(<FileUploader onUploadSuccess={vi.fn()} isProcessing={false} />);
-    const dropZone = screen.getByText(/drag and drop your report/i);
-
-    await act(async () => {
-      // Dispatch drop action missing a physical files array payload to hit your fallback condition lines
-      fireEvent.drop(dropZone, { dataTransfer: {} });
-    });
-    expect(dropZone).toBeInTheDocument();
+    // --- NEW FIX: Triggers line 36 empty-file change exception branch handler ---
+    const fileInput = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    if (fileInput) {
+      fireEvent.change(fileInput, { target: { files: null } });
+      fireEvent.change(fileInput, { target: { files: [] } });
+      expect(mockOnUploadSuccess).not.toHaveBeenCalled();
+    }
   });
 });

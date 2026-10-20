@@ -1,6 +1,6 @@
 import pandas as pd
 from io import BytesIO
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple
 from app.domain.models import RawInputPayload
 from app.domain.exceptions import UnparseableFileException
 
@@ -18,6 +18,24 @@ class PandasCSVProcessor:
         Skips completely empty lines gracefully. Throws UnparseableFileException
         if structural schema validations fail.
         """
+        # --- FIX: Build an exact physical file-line mapping to eliminate row shifts ---
+        try:
+            raw_lines = file_content.decode("utf-8", errors="ignore").splitlines()
+        except Exception as e:
+            raise UnparseableFileException(f"Failed to decode CSV bytes stream: {str(e)}")
+
+        line_index_map = {}
+        current_physical_line = 1
+        data_row_counter = 0
+
+        for line in raw_lines:
+            # Enforce line counting only on active, non-blank rows matching skip_blank_lines behavior
+            if line.strip():
+                if current_physical_line > 1:  # Bypass header row tracking
+                    line_index_map[data_row_counter] = current_physical_line
+                    data_row_counter += 1
+            current_physical_line += 1
+
         try:
             # Read CSV stream buffer. Use keep_default_na=False to avoid converting string hashes or nulls into NaN floats
             df = pd.read_csv(BytesIO(file_content), skip_blank_lines=True, keep_default_na=False, dtype=str)
@@ -36,9 +54,10 @@ class PandasCSVProcessor:
 
         sanitized_payloads: List[Tuple[int, RawInputPayload]] = []
 
-        # Process each row, keeping an 1-based index tracker for human reporting references
+        # Process each row, matching the DataFrame index against our absolute file line map
         for index, row in df.iterrows():
-            line_number = int(index) + 2  # Account for 0-index offset and header row row count
+            # Looks up the true line context position on disk, falling back safely if unmapped
+            line_number = line_index_map.get(int(index), int(index) + 2)
 
             # Clean outer quotes and structural spacing on data inputs
             raw_payload = RawInputPayload(

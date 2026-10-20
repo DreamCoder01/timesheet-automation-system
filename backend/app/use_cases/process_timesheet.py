@@ -25,14 +25,20 @@ class ProcessTimesheetPipeline:
         fallback_week_date = "2026-09-07"
 
         for line_num, payload in indexed_payloads:
-            # 1. Intercept structural empty records or malformed data states
-            if not payload.employee_id or not payload.clock_in:
+            # 1. Intercept Structural Omissions and Missing Column Shapes (Lines 23 & 24)
+            if not payload.employee_id or not payload.clock_in or not payload.clock_out:
+                msg = f"Missing vital structural identifier keys at line {line_num}."
+                if not payload.employee_id:
+                    msg = f"Structural Mismatch: Missing mandatory Employee ID field reference at line {line_num}."
+                elif not payload.clock_out:
+                    msg = f"Structural Mismatch: Employee forgot to clock out or columns are truncated at line {line_num}."
+                
                 quarantined_anomalies.append(AnomalyExceptionModel(
                     exception_id=str(uuid.uuid4()),
                     quarantine_timestamp=datetime.now(timezone.utc),
                     error_severity=ErrorSeverity.CRITICAL,
                     error_category=AnomalyCategory.STRUCTURAL_MISMATCH,
-                    diagnostic_message=f"Missing vital structural identifier keys at line {line_num}.",
+                    diagnostic_message=msg,
                     raw_input_line_number=line_num,
                     raw_input_payload=payload,
                     inferred_context=InferredContext()
@@ -53,17 +59,18 @@ class ProcessTimesheetPipeline:
                 ))
                 continue
 
-            # 3. Execute Time Processing
+            # 3. Execute Chronological & Mathematical Processing
             try:
                 parsed_in = self.parser.parse_timestamp(payload.clock_in, fallback_week_date)
-                parsed_out = self.parser.parse_timestamp(payload.clock_out, fallback_week_date) if payload.clock_out else None
-                
-                if not parsed_out:
-                    raise ValueError("Missing explicit clock out punch event target.")
+                parsed_out = self.parser.parse_timestamp(payload.clock_out, fallback_week_date)
 
                 # Edge-case: Catch Same-Time zero minute double tap anomalies (Line 21)
                 if parsed_in == parsed_out:
                     raise ValueError("Same-Time log paradox registered. Employee accidental terminal double-tap.")
+
+                # Edge-case: Catch Inverted Chronological Time-Clock Entries (Line 15)
+                if parsed_out < parsed_in:
+                    raise ValueError(f"Inverted chronological time clock log detected: clock-out ({payload.clock_out}) cannot be earlier than clock-in ({payload.clock_in}).")
 
                 raw_m, payable_m, overnight_flag = self.accumulator.calculate_durations(parsed_in, parsed_out)
 
